@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Your Comic Preview</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fafafa; margin: 0; padding: 20px; }
+        .panel {
+            background: #fff; border-radius: 8px; padding: 20px;
+            margin-bottom: 30px; box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        }
+        .panel img { max-width: 100%; border-radius: 5px; margin-top: 10px; }
+        h2 { color: #444; }
+        .download {
+            text-align: center; margin-top: 30px;
+        }
+        .download a {
+            background: #28a745; color: #fff; padding: 12px 20px;
+            text-decoration: none; border-radius: 5px;
+        }
+        .download a:hover { background: #218838; }
+    </style>
+</head>
+<body>S
+    <h1>Your Comic Preview</h1>
+    {% for panel in layout %}
+    <div class="panel">
+        <h2>Panel {{ panel.panel }}: {{ panel.title }}</h2>
+        <img src="{{ panel.image_path }}" alt="Comic Panel Image">
+        <p><em>{{ panel.scene_description }}</em></p>
+        <p>{{ panel.text }}</p>
+    </div>
+    {% endfor %}
+
+    <div class="download">
+        <a href="{{ pdf_path }}">Download Comic as PDF</a>
+    </div>
+</body>
+</html>

@@ -1,46 +1,61 @@
-def save_pdf(layout):
-    pdf = PDF()
+from __future__ import annotations
+import re
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse
+from fpdf import FPDF
+from app.config import BASE_DIR
+from app.schemas import ComicLayout
+
+def get_image_path(image_url: str) -> Path:
+    parsed = urlparse(image_url)
+    relative_path = parsed.path.lstrip("/")
+    if not relative_path.startswith("static/"):
+        raise ValueError("Invalid image path.")
+    path = (BASE_DIR / relative_path).resolve()
+    static_dir = (BASE_DIR / "static").resolve()
+    if static_dir not in path.parents:
+        raise ValueError("Image path is outside static directory.")
+    return path
+
+def pdf_text(text: str) -> str:
+    return text.encode("latin-1", "replace").decode("latin-1")
+
+def save_pdf(layout: list[ComicLayout], title: str = "ComicCraft Comic") -> str:
+    export_dir = BASE_DIR / "static" / "exports"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_title = re.sub(r"[^a-zA-Z0-9_-]+", "_", title).strip("_") or "comic"
+    output_path = export_dir / f"{safe_title}_{timestamp}.pdf"
+
+    pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Add Unicode font
-    pdf.add_font('DejaVu', '', FONT_PATH, uni=True)
-    pdf.set_font('DejaVu', '', 12)
-
     for panel in layout:
-        image_path = panel['image_path']
-        story_text = panel['text']
-
         pdf.add_page()
+        pdf.set_font("Helvetica", "B", 18)
+        pdf.multi_cell(0, 10, pdf_text(f"Panel {panel.panel_number}: {panel.title}"))
+        image_path = get_image_path(panel.image_url)
 
-        # Panel title (no bold)
-        pdf.set_font('DejaVu', '', 14)
-        pdf.cell(0, 10, f"Panel {panel['panel']}", ln=True, align="C")
-        pdf.set_font('DejaVu', '', 12)
-
-        # Image placement
-        y_image = 30
-        image_height = 100
-        spacing_after_image = 15
-
-        if os.path.exists(image_path):
-            pdf.image(image_path, x=10, y=y_image, w=pdf.w - 20, h=image_height)
+        if image_path.exists():
+            pdf.image(str(image_path), x=15, y=35, w=180)
+            pdf.ln(105)
         else:
-            pdf.set_y(y_image)
-            pdf.multi_cell(0, 10, f"Image missing: {image_path}")
+            pdf.ln(10)
+            pdf.set_font("Helvetica", "", 11)
+            pdf.multi_cell(0, 7, "[Image unavailable]")
 
-        # Text placement below image
-        pdf.set_y(y_image + image_height + spacing_after_image)
-        story_lines = story_text.strip().splitlines()
-        # Remove title line like "**Panel 1: Title**" if present
-        if story_lines and story_lines[0].strip().lower().startswith("**panel"):
-            story_lines = story_lines[1:]
-        cleaned_text = "\n".join(story_lines).strip()
-        pdf.multi_cell(0, 10, cleaned_text)
+        for label, content in [
+            ("Scene", panel.scene_description),
+            ("Caption", panel.caption),
+            ("Narration", panel.narration),
+            ("Dialogue", panel.dialogue),
+        ]:
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.multi_cell(0, 7, pdf_text(label))
+            pdf.set_font("Helvetica", "", 10)
+            pdf.multi_cell(0, 6, pdf_text(content or "-"))
+            pdf.ln(2)
 
-    # Save with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    filename = f"comic_{timestamp}.pdf"
-    pdf_path = os.path.join(EXPORT_FOLDER, filename)
-    pdf.output(pdf_path)
-
-    return pdf_path
+    pdf.output(str(output_path))
+    return f"/static/exports/{output_path.name}"
